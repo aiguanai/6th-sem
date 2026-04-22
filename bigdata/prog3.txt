@@ -1,0 +1,66 @@
+start-dfs.sh
+start-yarn.sh
+jps
+hdfs dfs -put dataset3.csv /
+hdfs dfs -ls /
+nano movie_analysis.pig
+
+-- Load dataset
+ratings = LOAD '/dataset3.csv' USING PigStorage(',')
+AS (movieId:int, title:chararray, userId:int, rating:float, genreId:int);
+
+-- a) List all movies and number of ratings
+
+grouped_movies = GROUP ratings BY movieId;
+
+movie_rating_count = FOREACH grouped_movies
+GENERATE group AS movieId, COUNT(ratings) AS numRatings;
+
+DUMP movie_rating_count;
+
+-- b) Users who rated same movie + count
+
+grouped_by_movie = GROUP ratings BY movieId;
+
+user_rating_count = FOREACH grouped_by_movie {
+users = ratings.userId;
+GENERATE group AS movieId, users, COUNT(users) AS numRatings;
+};
+
+DUMP user_rating_count;
+
+-- c) Users who rated at least one movie
+
+valid_users = FILTER ratings BY userId IS NOT NULL;
+
+user_ids = FOREACH valid_users GENERATE userId;
+
+distinct_users = DISTINCT user_ids;
+
+DUMP distinct_users;
+
+-- d) Count of movies with rating > 3
+
+high_rating = FILTER ratings BY rating > 3;
+
+grouped_high = GROUP high_rating BY movieId;
+
+movies = FOREACH grouped_high GENERATE group AS movieId;
+
+final_group = GROUP movies ALL;
+
+final_count = FOREACH final_group
+GENERATE COUNT(movies) AS numHighRatedMovies;
+
+DUMP final_count;
+
+-- e) Max, Min, Avg ratings
+
+group_all = GROUP ratings ALL;
+
+stats = FOREACH group_all
+GENERATE MAX(ratings.rating) AS maxRating,
+MIN(ratings.rating) AS minRating,
+AVG(ratings.rating) AS avgRating;
+
+DUMP stats;
